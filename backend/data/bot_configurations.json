@@ -1,0 +1,24 @@
+{
+  "default": {
+    "mode": "ai",
+    "greetingMessage": "Olá! Bem-vindo à Pizzaria Bella Vista! Como posso ajudá-lo hoje?",
+    "greetingCooldownHours": 24,
+    "greetingCooldownMessage": "Olá! Já enviei as informações há pouco. Em que mais posso ajudá-lo?",
+    "greetingSilentCooldown": false,
+    "aiEnabled": true,
+    "autoReply": true,
+    "aiModel": "gpt-4o-mini",
+    "businessHours": {
+      "enabled": false,
+      "start": "09:00",
+      "end": "18:00",
+      "timezone": "America/Sao_Paulo"
+    },
+    "personality": "friendly",
+    "responseLength": "medium",
+    "cooldownHours": 24,
+    "userId": "test-user-id",
+    "audioProcessing": true,
+    "imageProcessing": true
+  }
+}

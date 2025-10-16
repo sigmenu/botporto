@@ -1,0 +1,374 @@
+{
+  "timestamp": "2025-09-10T21:51:28.145Z",
+  "testSession": "test_connection_1757541078785",
+  "baseUrl": "http://localhost:3444",
+  "summary": {
+    "total": 8,
+    "passed": 7,
+    "failed": 1,
+    "duration": 9359
+  },
+  "results": {
+    "Health Check": true,
+    "QR Generation": {
+      "success": true,
+      "qr": "data:image/png;base64,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"
+    },
+    "Connection Status": {
+      "success": true,
+      "status": "qr_ready",
+      "connected": false,
+      "connectionAttempts": 0,
+      "lastError": null,
+      "qrTimestamp": 1757541080870
+    },
+    "Diagnostics": {
+      "sessionId": "test_connection_1757541078785",
+      "status": "qr_ready",
+      "connectionAttempts": 0,
+      "isConnecting": true,
+      "lastError": null,
+      "qrTimestamp": 1757541080870,
+      "recentEvents": [
+        {
+          "timestamp": "2025-09-10T21:51:20.026Z",
+          "event": "connection.update",
+          "data": "{\"connection\":\"connecting\",\"receivedPendingNotifications\":false}",
+          "status": "connecting"
+        },
+        {
+          "timestamp": "2025-09-10T21:51:20.834Z",
+          "event": "connection.update",
+          "data": "{\"qr\":\"2@JP1eZfKFhi0nmwWXfdQbsgITglxo6my3JMa35ZVXQyoAafN9u+Ek6G8Rv+ExpHfm4aqqWnMopiLJJn4p0+xmSHcwZidm3RCJBSc=,rnzOc13CQx9O8AS2cZwRjryP31SYHtBgt7cdRwMIOms=,kloS3rcqnKkL9KxCoajBaXXOc8GVZBgvwaD596Va7VU=,Zudk3XKAePJtpM0fksaqyvJcXOxJorzrGeyXbDCq+/Q=\"}",
+          "status": "connecting"
+        }
+      ],
+      "diagnostics": {
+        "baileysVersion": [
+          2,
+          3000,
+          1023223821
+        ],
+        "browserInfo": [
+          "Mac OS",
+          "Safari",
+          "14.4.1"
+        ],
+        "lastConnectTime": "2025-09-10T21:51:20.026Z",
+        "lastDisconnectTime": null,
+        "totalReconnects": 0,
+        "avgConnectionTime": null
+      }
+    },
+    "Phone Pairing": null,
+    "Invalid Phone Handling": true,
+    "Connections List": {
+      "success": true,
+      "connections": [
+        {
+          "sessionId": "test_connection_1757541078785",
+          "status": "qr_ready",
+          "connected": false,
+          "connectionAttempts": 0,
+          "lastError": null,
+          "qrTimestamp": 1757541080870
+        }
+      ],
+      "totalConnections": 1,
+      "connectedSessions": 0
+    },
+    "Disconnection": true
+  },
+  "logs": [
+    {
+      "timestamp": "2025-09-10T21:51:18.785Z",
+      "type": "info",
+      "message": "Starting comprehensive WhatsApp connection tests..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:18.786Z",
+      "type": "info",
+      "message": "Test session: test_connection_1757541078785"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:18.786Z",
+      "type": "info",
+      "message": "Testing against: http://localhost:3444"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:18.786Z",
+      "type": "info",
+      "message": "\\n--- Running: Health Check ---"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:18.786Z",
+      "type": "info",
+      "message": "Testing health check endpoint..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:18.802Z",
+      "type": "success",
+      "message": "Health check passed ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:18.802Z",
+      "type": "info",
+      "message": "Service version: 2.0.0"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:18.802Z",
+      "type": "info",
+      "message": "System uptime: 9s"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:18.802Z",
+      "type": "success",
+      "message": "✓ Health Check PASSED"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:19.803Z",
+      "type": "info",
+      "message": "\\n--- Running: QR Generation ---"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:19.804Z",
+      "type": "info",
+      "message": "Testing QR code generation for session: test_connection_1757541078785..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:21.029Z",
+      "type": "success",
+      "message": "QR code generated successfully ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:21.030Z",
+      "type": "info",
+      "message": "QR timestamp: 1757541080870"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:21.030Z",
+      "type": "success",
+      "message": "QR code format is valid ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:21.030Z",
+      "type": "success",
+      "message": "✓ QR Generation PASSED"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:22.031Z",
+      "type": "info",
+      "message": "\\n--- Running: Connection Status ---"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:22.031Z",
+      "type": "info",
+      "message": "Testing connection status for session: test_connection_1757541078785..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:22.033Z",
+      "type": "success",
+      "message": "Status check passed ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:22.033Z",
+      "type": "info",
+      "message": "Connection status: qr_ready"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:22.033Z",
+      "type": "info",
+      "message": "Connected: false"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:22.033Z",
+      "type": "info",
+      "message": "Connection attempts: 0"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:22.033Z",
+      "type": "success",
+      "message": "✓ Connection Status PASSED"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.034Z",
+      "type": "info",
+      "message": "\\n--- Running: Diagnostics ---"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.034Z",
+      "type": "info",
+      "message": "Testing diagnostics for session: test_connection_1757541078785..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "success",
+      "message": "Diagnostics retrieved successfully ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "info",
+      "message": "Session ID: test_connection_1757541078785"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "info",
+      "message": "Status: qr_ready"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "info",
+      "message": "Connection attempts: 0"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "info",
+      "message": "Is connecting: true"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "info",
+      "message": "Baileys version: 2,3000,1023223821"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "info",
+      "message": "Recent events count: 2"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "info",
+      "message": "Latest event: connection.update"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:23.036Z",
+      "type": "success",
+      "message": "✓ Diagnostics PASSED"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:24.037Z",
+      "type": "info",
+      "message": "\\n--- Running: Phone Pairing ---"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:24.038Z",
+      "type": "info",
+      "message": "Testing phone number pairing..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:24.123Z",
+      "type": "error",
+      "message": "Phone pairing failed: Connection Closed"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:24.123Z",
+      "type": "error",
+      "message": "✗ Phone Pairing FAILED"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:25.124Z",
+      "type": "info",
+      "message": "\\n--- Running: Invalid Phone Handling ---"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:25.125Z",
+      "type": "info",
+      "message": "Testing invalid phone number handling..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:25.131Z",
+      "type": "success",
+      "message": "Invalid phone number correctly rejected ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:25.131Z",
+      "type": "success",
+      "message": "✓ Invalid Phone Handling PASSED"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:26.132Z",
+      "type": "info",
+      "message": "\\n--- Running: Connections List ---"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:26.132Z",
+      "type": "info",
+      "message": "Testing connections list..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:26.137Z",
+      "type": "success",
+      "message": "Connections list retrieved successfully ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:26.137Z",
+      "type": "info",
+      "message": "Total connections: 1"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:26.137Z",
+      "type": "info",
+      "message": "Connected sessions: 0"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:26.137Z",
+      "type": "success",
+      "message": "Found test session in connections list ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:26.137Z",
+      "type": "success",
+      "message": "✓ Connections List PASSED"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:27.138Z",
+      "type": "info",
+      "message": "\\n--- Running: Disconnection ---"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:27.138Z",
+      "type": "info",
+      "message": "Testing disconnection for session: test_connection_1757541078785..."
+    },
+    {
+      "timestamp": "2025-09-10T21:51:27.143Z",
+      "type": "success",
+      "message": "Session disconnected successfully ✓"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:27.143Z",
+      "type": "success",
+      "message": "✓ Disconnection PASSED"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:28.144Z",
+      "type": "info",
+      "message": "\\n=== TEST SUMMARY ==="
+    },
+    {
+      "timestamp": "2025-09-10T21:51:28.145Z",
+      "type": "info",
+      "message": "Total tests: 8"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:28.145Z",
+      "type": "warning",
+      "message": "Passed: 7"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:28.145Z",
+      "type": "info",
+      "message": "Failed: 1"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:28.145Z",
+      "type": "info",
+      "message": "Total time: 9359ms"
+    },
+    {
+      "timestamp": "2025-09-10T21:51:28.145Z",
+      "type": "warning",
+      "message": "\\n⚠️  SOME TESTS FAILED"
+    }
+  ]
+}
