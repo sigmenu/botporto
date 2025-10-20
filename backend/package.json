@@ -17,11 +17,11 @@
     "test:server": "node test-server.js",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "seed": "ts-node --transpile-only prisma/seed.ts",
+    "seed": "ts-node --project prisma/tsconfig.seed.json --transpile-only prisma/seed.ts",
     "kill-ports": "lsof -ti:3001,3000 | xargs kill -9"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "node prisma/seed-runner.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.20.0",

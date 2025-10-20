@@ -41,8 +41,8 @@ export const messageRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 30, // 30 mensagens por minuto
   keyGenerator: (req) => {
-    // Usar ID do usuário se disponível, senão IP
-    return req.user?.id || req.ip || 'anonymous';
+    // Usar ID do usuário (id ou userId) se disponível, senão IP
+    return (req.user && (req.user.id || req.user.userId)) || req.ip || 'anonymous';
   },
   message: {
     success: false,

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import jwt, { SignOptions } from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';

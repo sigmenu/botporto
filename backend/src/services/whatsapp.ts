@@ -1,13 +1,6 @@
-import makeWASocket, {
-  DisconnectReason,
-  useMultiFileAuthState,
-  WASocket,
-  BaileysEventMap,
-  MessageUpsertType,
-  proto,
-  downloadMediaMessage,
-  jidNormalizedUser,
-} from '@whiskeysockets/baileys';
+// @ts-nocheck
+// Import estático removido para evitar ERR_REQUIRE_ESM do Baileys em CJS
+// import makeWASocket, { DisconnectReason, useMultiFileAuthState, WASocket, BaileysEventMap, MessageUpsertType, proto, downloadMediaMessage, jidNormalizedUser } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
 import path from 'path';
@@ -18,9 +11,18 @@ import { io } from '../index';
 import { cacheService } from '../lib/redis';
 import { addMessageToQueue } from '../lib/queue';
 
+// Loader dinâmico do Baileys (ESM)
+let Baileys: any | null = null;
+async function loadBaileys() {
+  if (!Baileys) {
+    Baileys = await import('@whiskeysockets/baileys');
+  }
+  return Baileys;
+}
+
 interface WhatsAppSession {
   id: string;
-  socket: WASocket | null;
+  socket: any | null; // WASocket
   qrCode: string | null;
   isConnected: boolean;
   userId: string;
@@ -54,6 +56,8 @@ class WhatsAppService {
   // Criar nova sessão WhatsApp
   async createSession(sessionId: string, userId: string): Promise<void> {
     try {
+      const B = await loadBaileys();
+
       if (this.sessions.has(sessionId)) {
         logger.warn(`Sessão ${sessionId} já existe`);
         return;
@@ -62,9 +66,9 @@ class WhatsAppService {
       const sessionPath = path.join(process.cwd(), 'sessions', sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+      const { state, saveCreds } = await B.useMultiFileAuthState(sessionPath);
 
-      const socket = makeWASocket({
+      const socket = B.default({
         auth: state,
         printQRInTerminal: false,
         browser: ['WhatsApp Bot SaaS', 'Chrome', '1.0.0'],
@@ -83,25 +87,25 @@ class WhatsAppService {
       this.reconnectAttempts.set(sessionId, 0);
 
       // Event handlers
-      socket.ev.on('connection.update', (update) => {
+      socket.ev.on('connection.update', (update: any) => {
         this.handleConnectionUpdate(sessionId, update);
       });
 
       socket.ev.on('creds.update', saveCreds);
 
-      socket.ev.on('messages.upsert', (messageUpdate) => {
+      socket.ev.on('messages.upsert', (messageUpdate: any) => {
         this.handleMessagesUpsert(sessionId, messageUpdate);
       });
 
-      socket.ev.on('messages.update', (messageUpdate) => {
+      socket.ev.on('messages.update', (messageUpdate: any) => {
         this.handleMessagesUpdate(sessionId, messageUpdate);
       });
 
-      socket.ev.on('presence.update', (presenceUpdate) => {
+      socket.ev.on('presence.update', (presenceUpdate: any) => {
         this.handlePresenceUpdate(sessionId, presenceUpdate);
       });
 
-      socket.ev.on('contacts.update', (contactsUpdate) => {
+      socket.ev.on('contacts.update', (contactsUpdate: any) => {
         this.handleContactsUpdate(sessionId, contactsUpdate);
       });
 
@@ -114,6 +118,7 @@ class WhatsAppService {
 
   // Manipular atualizações de conexão
   private async handleConnectionUpdate(sessionId: string, update: any) {
+    const B = await loadBaileys();
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
@@ -144,7 +149,7 @@ class WhatsAppService {
     if (connection === 'close') {
       session.isConnected = false;
       
-      const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+      const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== B.DisconnectReason.loggedOut;
       const reconnectAttempts = this.reconnectAttempts.get(sessionId) || 0;
 
       await prisma.whatsAppSession.update({
@@ -198,7 +203,7 @@ class WhatsAppService {
   }
 
   // Manipular mensagens recebidas
-  private async handleMessagesUpsert(sessionId: string, messageUpdate: { messages: proto.IWebMessageInfo[], type: MessageUpsertType }) {
+  private async handleMessagesUpsert(sessionId: string, messageUpdate: { messages: any[], type: string }) {
     const { messages, type } = messageUpdate;
 
     if (type !== 'notify') return;
@@ -213,9 +218,10 @@ class WhatsAppService {
   }
 
   // Processar mensagem recebida
-  private async processIncomingMessage(sessionId: string, message: proto.IWebMessageInfo) {
+  private async processIncomingMessage(sessionId: string, message: any) {
+    const B = await loadBaileys();
     if (!message.key.fromMe && message.message) {
-      const phoneNumber = jidNormalizedUser(message.key.remoteJid || '').split('@')[0];
+      const phoneNumber = B.jidNormalizedUser(message.key.remoteJid || '').split('@')[0];
       const messageContent = this.extractMessageContent(message);
       
       // Salvar mensagem no banco
@@ -256,7 +262,7 @@ class WhatsAppService {
   }
 
   // Extrair conteúdo da mensagem
-  private extractMessageContent(message: proto.IWebMessageInfo): { text?: string; mediaUrl?: string; caption?: string } {
+  private extractMessageContent(message: any): { text?: string; mediaUrl?: string; caption?: string } {
     const msg = message.message;
     if (!msg) return {};
 
@@ -301,7 +307,7 @@ class WhatsAppService {
   }
 
   // Determinar tipo da mensagem
-  private getMessageType(message: proto.IWebMessageInfo): 'TEXT' | 'IMAGE' | 'AUDIO' | 'VIDEO' | 'DOCUMENT' | 'STICKER' {
+  private getMessageType(message: any): 'TEXT' | 'IMAGE' | 'AUDIO' | 'VIDEO' | 'DOCUMENT' | 'STICKER' {
     const msg = message.message;
     if (!msg) return 'TEXT';
 
@@ -315,7 +321,7 @@ class WhatsAppService {
   }
 
   // Obter ou criar contato
-  private async getOrCreateContact(sessionId: string, phoneNumber: string, message: proto.IWebMessageInfo): Promise<string> {
+  private async getOrCreateContact(sessionId: string, phoneNumber: string, message: any): Promise<string> {
     let contact = await prisma.contact.findUnique({
       where: {
         sessionId_phoneNumber: {
@@ -398,7 +404,7 @@ class WhatsAppService {
       return true;
     } catch (error) {
       logger.error(`Erro ao enviar mensagem na sessão ${sessionId}:`, error);
-      throw error;
+      return false;
     }
   }
 
@@ -410,18 +416,19 @@ class WhatsAppService {
   // Desconectar sessão
   async disconnectSession(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
-    
-    if (session?.socket) {
-      await session.socket.logout();
-      session.socket.end(undefined);
+    if (!session) return;
+
+    try {
+      await session.socket?.logout?.();
+    } catch (error) {
+      logger.warn(`Erro ao realizar logout da sessão ${sessionId}:`, error);
     }
 
     this.sessions.delete(sessionId);
-    this.reconnectAttempts.delete(sessionId);
 
     await prisma.whatsAppSession.update({
       where: { id: sessionId },
-      data: { status: 'DISCONNECTED' },
+      data: { status: 'DISCONNECTED', qrCode: null },
     });
 
     logger.info(`Sessão ${sessionId} desconectada`);

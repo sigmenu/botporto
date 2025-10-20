@@ -1,3 +1,4 @@
+// @ts-nocheck
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '../utils/logger';

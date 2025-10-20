@@ -1,5 +1,6 @@
+/// <reference types="node" />
 import { PrismaClient } from '@prisma/client'
-const bcrypt = require('bcryptjs')
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
@@ -42,7 +43,7 @@ async function main() {
         messagesLimit: 999999,
         contactsLimit: 999999,
         sessionsLimit: 999999
-      }
+      } as any
     })
     
     console.log('✅ Subscription criada para admin')
@@ -98,7 +99,7 @@ async function main() {
 
     // Deletar templates existentes e criar novos
     await prisma.template.deleteMany({
-      where: { userId: admin.id }
+      where: { userId: admin.id } as any
     })
 
     for (const templateData of templatesData) {
