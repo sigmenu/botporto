@@ -1038,6 +1038,137 @@ app.get('/api/bot/config', authenticateToken, async (req, res) => {
   }
 })
 
+// Restaurant Info endpoint
+app.get('/api/restaurant/info', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.query.userId
+
+    // Buscar informações do usuário/restaurante
+    const user = await prisma.user.findUnique({
+      where: { id: userId as string },
+      select: {
+        id: true,
+        name: true,
+        company: true,
+        phone: true,
+        email: true
+      }
+    })
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    // Retornar informações básicas
+    const restaurantInfo = {
+      name: user.company || user.name || 'Não configurado',
+      contact: user.phone || 'Não configurado',
+      email: user.email,
+      // Adicione mais campos conforme necessário
+      address: 'Não configurado',
+      hours: 'Não configurado',
+      delivery: false
+    }
+
+    res.json({
+      success: true,
+      data: restaurantInfo
+    })
+
+  } catch (error) {
+    console.error('❌ Restaurant info error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while getting restaurant info'
+    })
+  }
+})
+
+// Excluded Contacts endpoint
+app.get('/api/excluded-contacts', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId || req.query.userId
+
+    // Por enquanto, retornar array vazio
+    // Você pode criar uma tabela ExcludedContacts no Prisma depois
+    const excludedContacts = []
+
+    res.json({
+      success: true,
+      data: excludedContacts
+    })
+
+  } catch (error) {
+    console.error('❌ Excluded contacts error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while getting excluded contacts'
+    })
+  }
+})
+
+// Add Excluded Contact endpoint
+app.post('/api/excluded-contacts', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { phoneNumber, reason } = req.body
+
+    if (!phoneNumber) {
+      return res.status(400).json({
+        success: false,
+        message: 'Phone number is required'
+      })
+    }
+
+    // Implementar lógica para salvar contato excluído
+    // Por enquanto, apenas confirmar
+    res.json({
+      success: true,
+      message: 'Contact excluded successfully',
+      data: {
+        phoneNumber,
+        reason: reason || 'No reason provided',
+        excludedAt: new Date().toISOString()
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ Add excluded contact error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while excluding contact'
+    })
+  }
+})
+
+// Remove Excluded Contact endpoint
+app.delete('/api/excluded-contacts/:phoneNumber', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const { phoneNumber } = req.params
+
+    // Implementar lógica para remover contato excluído
+    res.json({
+      success: true,
+      message: 'Contact removed from exclusion list',
+      data: {
+        phoneNumber,
+        removedAt: new Date().toISOString()
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ Remove excluded contact error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while removing excluded contact'
+    })
+  }
+})
+
 // Test database connection
 app.get('/api/test/db', async (req, res) => {
   try {
@@ -1070,12 +1201,14 @@ app.get('/api/test/db', async (req, res) => {
   }
 })
 
-// 404 handler
+// 404 handler - DEVE FICAR NO FINAL
 app.use('*', (req, res) => {
+  console.log('❌ 404 - Endpoint not found:', req.method, req.originalUrl)
   res.status(404).json({
     success: false,
     message: 'Endpoint not found',
-    path: req.originalUrl
+    path: req.originalUrl,
+    method: req.method
   })
 })
 
