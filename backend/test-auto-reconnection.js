@@ -15,7 +15,7 @@ const path = require('path');
 const { exec } = require('child_process');
 const axios = require('axios');
 
-const API_BASE_URL = 'http://localhost:3333';
+const API_BASE_URL = 'http://localhost:3001';
 const SESSIONS_DIR = path.join(__dirname, 'sessions');
 const BAILEYS_SESSIONS_DIR = path.join(__dirname, 'baileys_sessions');
 

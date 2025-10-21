@@ -1,7 +1,7 @@
 import { useAuthStore } from '@/store/auth';
 import toast from 'react-hot-toast';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3333';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export interface LoginCredentials {
   email: string;

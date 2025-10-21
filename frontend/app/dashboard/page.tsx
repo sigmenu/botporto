@@ -268,7 +268,7 @@ export default function Dashboard() {
   const loadRestaurantData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3333/api/restaurant/info?userId=test-user-id', {
+      const response = await fetch('http://localhost:3001/api/restaurant/info?userId=test-user-id', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -290,7 +290,7 @@ export default function Dashboard() {
   const saveRestaurantInfo = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3333/api/restaurant/info', {
+      const response = await fetch('http://localhost:3001/api/restaurant/info', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -320,7 +320,7 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3333/api/restaurant/menu', {
+      const response = await fetch('http://localhost:3001/api/restaurant/menu', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -359,7 +359,7 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3333/api/restaurant/menu/${id}`, {
+      const response = await fetch(`http://localhost:3001/api/restaurant/menu/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -386,7 +386,7 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3333/api/restaurant/promotions', {
+      const response = await fetch('http://localhost:3001/api/restaurant/promotions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -425,7 +425,7 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3333/api/restaurant/promotions/${id}`, {
+      const response = await fetch(`http://localhost:3001/api/restaurant/promotions/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -452,7 +452,7 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3333/api/ai/training', {
+      const response = await fetch('http://localhost:3001/api/ai/training', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -488,7 +488,7 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3333/api/ai/training/${id}`, {
+      const response = await fetch(`http://localhost:3001/api/ai/training/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -511,7 +511,7 @@ export default function Dashboard() {
   const loadExcludedContacts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3333/api/excluded-contacts?userId=test-user-id', {
+      const response = await fetch('http://localhost:3001/api/excluded-contacts?userId=test-user-id', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -536,7 +536,7 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3333/api/excluded-contacts', {
+      const response = await fetch('http://localhost:3001/api/excluded-contacts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -565,7 +565,7 @@ export default function Dashboard() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:3333/api/excluded-contacts/${id}`, {
+      const response = await fetch(`http://localhost:3001/api/excluded-contacts/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-const BASE_URL = 'http://localhost:3333/api';
+const BASE_URL = 'http://localhost:3001/api';
 
 class WhatsAppPersistentTester {
   constructor() {
