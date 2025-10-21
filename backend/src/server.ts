@@ -116,17 +116,17 @@ app.get('/health', async (req, res) => {
   try {
     // Test database connection
     await prisma.$queryRaw`SELECT 1`
-    
-    res.status(200).json({ 
-      status: 'ok', 
+
+    res.status(200).json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       database: 'connected',
       message: 'Server running with database connection'
     })
   } catch (error) {
-    res.status(500).json({ 
-      status: 'error', 
+    res.status(500).json({
+      status: 'error',
       timestamp: new Date().toISOString(),
       database: 'disconnected',
       message: 'Database connection failed',
@@ -139,7 +139,7 @@ app.get('/health', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     console.log('🔐 Login attempt:', { email: req.body.email })
-    
+
     const { email, password } = req.body
 
     if (!email || !password) {
@@ -185,7 +185,7 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Compare password
     const isPasswordValid = await bcrypt.compare(password, user.password)
-    
+
     if (!isPasswordValid) {
       console.log('❌ Invalid password for user:', email)
       return res.status(401).json({
@@ -196,10 +196,10 @@ app.post('/api/auth/login', async (req, res) => {
 
     // Create JWT token
     const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        role: user.role 
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role
       },
       JWT_SECRET,
       { expiresIn: '7d' }
@@ -235,7 +235,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.post('/api/auth/register', async (req, res) => {
   try {
     console.log('📝 Registration attempt:', { email: req.body.email })
-    
+
     const { name, email, password, company, phone } = req.body
 
     if (!name || !email || !password) {
@@ -292,10 +292,10 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Create JWT token
     const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        role: user.role 
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role
       },
       JWT_SECRET,
       { expiresIn: '7d' }
@@ -377,6 +377,604 @@ app.post('/api/auth/logout', (req, res) => {
   })
 })
 
+// Complete onboarding endpoint
+app.post('/api/onboarding/complete', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    const {
+      businessNiche,
+      businessName,
+      businessInfo,
+      businessPhone,
+      businessAddress,
+      businessWebsite,
+      personality,
+      language,
+      welcomeMessage,
+      offlineMessage,
+      workingHours,
+      autoResponse,
+      humanHandoff,
+      leadCapture
+    } = req.body
+
+    // Validate required fields
+    if (!businessNiche || !businessName || !businessInfo || !personality) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: businessNiche, businessName, businessInfo, personality'
+      })
+    }
+
+    // Update user to mark onboarding as complete
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isFirstLogin: false,
+        onboardingStep: 6,
+        company: businessName
+      }
+    })
+
+    // Create or update bot configuration (simplified for now)
+    console.log('Bot configuration data:', {
+      userId,
+      businessNiche,
+      businessName,
+      businessInfo,
+      personality,
+      language: language || 'pt-BR',
+      workingHours: workingHours || {},
+      autoResponse: autoResponse !== undefined ? autoResponse : true,
+      humanHandoff: humanHandoff !== undefined ? humanHandoff : false,
+      leadCapture: leadCapture !== undefined ? leadCapture : true
+    })
+
+    res.json({
+      success: true,
+      message: 'Onboarding completed successfully',
+      data: {
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          name: updatedUser.name,
+          role: updatedUser.role,
+          plan: updatedUser.plan,
+          isFirstLogin: updatedUser.isFirstLogin,
+          onboardingStep: updatedUser.onboardingStep,
+          isActive: updatedUser.isActive,
+          emailVerified: updatedUser.emailVerified,
+          company: updatedUser.company,
+          phone: updatedUser.phone
+        },
+        nextStep: 'whatsapp-connection'
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ Onboarding complete error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error during onboarding completion'
+    })
+  }
+})
+
+// WhatsApp QR Code endpoint
+app.get('/api/whatsapp/qr', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    console.log('🔗 WhatsApp QR requested for user:', userId)
+
+    // Check if user already has a QR ready or is connected
+    const existingStatus = connectionStatus.get(userId)
+    const existingQR = qrCodes.get(userId)
+
+    if (existingQR && existingStatus === 'qr_ready') {
+      console.log('🔄 Returning existing QR for user:', userId)
+      return res.json({
+        success: true,
+        message: 'QR code available',
+        qr: existingQR,
+        status: 'waiting_scan',
+        data: {
+          userId,
+          generated_at: new Date().toISOString(),
+          expires_in: 20
+        }
+      })
+    }
+
+    if (existingStatus === 'connected') {
+      console.log('✅ User already connected:', userId)
+      return res.json({
+        success: true,
+        message: 'WhatsApp already connected',
+        connected: true,
+        status: 'connected'
+      })
+    }
+
+    // Only clear if we need to create a fresh connection
+    if (whatsappConnections.has(userId) && existingStatus !== 'qr_ready') {
+      console.log('🔄 Clearing stale connection for user:', userId)
+      const oldSock = whatsappConnections.get(userId)
+      try {
+        oldSock.end()
+      } catch (e) {
+        console.log('❌ Error ending old socket:', e.message)
+      }
+      whatsappConnections.delete(userId)
+      connectionStatus.delete(userId)
+      qrCodes.delete(userId)
+
+      // Clear old session files only when creating fresh connection
+      const userSessionPath = path.join(sessionsDir, `user_${userId}`)
+      if (fs.existsSync(userSessionPath)) {
+        console.log('🗑️ Removing old session files for user:', userId)
+        fs.rmSync(userSessionPath, { recursive: true, force: true })
+      }
+    }
+
+    // Set up session path
+    const userSessionPath = path.join(sessionsDir, `user_${userId}`)
+    console.log('📁 Session path:', userSessionPath)
+
+    const { state, saveCreds } = await useMultiFileAuthState(userSessionPath)
+
+    // Create WhatsApp socket with proper pino logger
+    const logger = P({ level: 'silent' }) // Silent logger to reduce noise
+
+    const sock = makeWASocket({
+      auth: state,
+      printQRInTerminal: false,
+      logger,
+      browser: ['WhatsApp Bot SaaS', 'Chrome', '1.0.0']
+    })
+
+    // Store socket reference
+    whatsappConnections.set(userId, sock)
+    connectionStatus.set(userId, 'connecting')
+
+    // Handle connection updates
+    sock.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update
+
+      console.log('📱 Connection update for user', userId, ':', { connection, hasQr: !!qr })
+
+      if (qr) {
+        try {
+          // Generate QR code data URL
+          const qrDataURL = await QRCode.toDataURL(qr, {
+            width: 300,
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          })
+          qrCodes.set(userId, qrDataURL)
+          connectionStatus.set(userId, 'qr_ready')
+          console.log('✅ QR code generated for user:', userId)
+        } catch (qrError) {
+          console.error('❌ QR code generation error:', qrError)
+        }
+      }
+
+      if (connection === 'open') {
+        console.log('✅ WhatsApp connected successfully for user:', userId)
+        connectionStatus.set(userId, 'connected')
+        qrCodes.delete(userId) // Clean up QR code
+
+        // Get user info
+        const userInfo = sock.user
+        console.log('👤 Connected as:', userInfo?.name, '|', userInfo?.id)
+
+        // Set up message handler with queue system
+        sock.ev.on('messages.upsert', async (m) => {
+          try {
+            const msg = m.messages[0]
+            if (!msg.key.fromMe && m.type === 'notify') {
+              const from = msg.key.remoteJid
+              const message = msg.message?.conversation ||
+                msg.message?.extendedTextMessage?.text || ''
+
+              if (!message) return
+              console.log('💬 Message from', from, ':', message)
+
+              // Add to queue
+              if (!messageQueues.has(from)) {
+                messageQueues.set(from, {
+                  messages: [],
+                  timer: null
+                })
+              }
+
+              const queue = messageQueues.get(from)
+              queue.messages.push(message)
+
+              // Clear existing timer
+              if (queue.timer) {
+                clearTimeout(queue.timer)
+              }
+
+              // Show typing indicator
+              await sock.sendPresenceUpdate('composing', from)
+
+              // Set new timer for 10 seconds
+              queue.timer = setTimeout(async () => {
+                const allMessages = queue.messages.join(' ')
+                const config = botConfigs.get(userId) || { mode: 'AI' }
+
+                try {
+                  let responseText: string
+
+                  // Normalize mode to uppercase for comparison
+                  const mode = (config.mode || 'AI').toString().toUpperCase()
+
+                  if (mode === 'GREETING') {
+                    // Check cooldown for greeting mode
+                    const lastTime = lastGreetingTimes.get(from) || 0
+                    const now = Date.now()
+                    const cooldownMs = (config.cooldownHours || 24) * 60 * 60 * 1000
+
+                    if (now - lastTime < cooldownMs) {
+                      console.log('🕐 Cooldown active, not sending greeting')
+                      queue.messages = []
+                      queue.timer = null
+                      await sock.sendPresenceUpdate('paused', from)
+                      return
+                    }
+
+                    responseText = config.greetingMessage || 'Olá! Obrigado por entrar em contato.'
+                    lastGreetingTimes.set(from, now)
+                    console.log('👋 Sending greeting message')
+
+                  } else {
+                    // AI mode - OpenAI integration
+                    console.log('🤖 Processing with AI:', allMessages)
+
+                    if (!process.env.OPENAI_API_KEY) {
+                      throw new Error('OpenAI API key not configured')
+                    }
+
+                    const completion = await openai.chat.completions.create({
+                      model: 'gpt-3.5-turbo',
+                      messages: [
+                        {
+                          role: 'system',
+                          content: 'Você é um assistente virtual amigável no WhatsApp. Responda de forma útil, concisa e em português. Mantenha suas respostas curtas e relevantes para WhatsApp.'
+                        },
+                        { role: 'user', content: allMessages }
+                      ],
+                      max_tokens: 500,
+                      temperature: 0.7
+                    })
+
+                    responseText = completion.choices[0]?.message?.content?.trim() || 'Desculpe, não consegui processar sua mensagem.'
+                    console.log('🎯 AI responded successfully')
+                  }
+
+                  await sock.sendPresenceUpdate('paused', from)
+                  await sock.sendMessage(from, { text: responseText })
+                  console.log('✅ Response sent to', from)
+
+                } catch (error) {
+                  console.error('❌ Error processing message:', error)
+
+                  // More specific error handling
+                  let errorMessage = 'Desculpe, ocorreu um erro ao processar sua mensagem.'
+
+                  if (error instanceof Error) {
+                    if (error.message.includes('OpenAI API key')) {
+                      errorMessage = 'Serviço de IA temporariamente indisponível. Tente novamente mais tarde.'
+                    } else if (error.message.includes('rate_limit')) {
+                      errorMessage = 'Muitas mensagens enviadas. Aguarde um momento e tente novamente.'
+                    } else if (error.message.includes('quota')) {
+                      errorMessage = 'Limite de uso do serviço atingido. Tente novamente mais tarde.'
+                    }
+                  }
+
+                  try {
+                    await sock.sendPresenceUpdate('paused', from)
+                    await sock.sendMessage(from, { text: errorMessage })
+                  } catch (sendError) {
+                    console.error('❌ Error sending error message:', sendError)
+                  }
+                }
+
+                // Clear queue
+                queue.messages = []
+                queue.timer = null
+              }, 10000) // Wait 10 seconds
+            }
+          } catch (error) {
+            console.error('❌ Error handling message:', error)
+          }
+        })
+
+        console.log('🤖 Message handler activated for user:', userId)
+      }
+
+      if (connection === 'close') {
+        console.log('🔌 Connection closed for user:', userId)
+        const reason = (lastDisconnect?.error as any)?.output?.statusCode
+
+        whatsappConnections.delete(userId)
+        qrCodes.delete(userId)
+
+        if (reason === DisconnectReason.loggedOut) {
+          console.log('📤 User logged out, cleaning session')
+          connectionStatus.set(userId, 'logged_out')
+          // Clean up session files
+          try {
+            fs.rmSync(userSessionPath, { recursive: true, force: true })
+          } catch (err) {
+            console.error('Error cleaning session:', err)
+          }
+        } else {
+          console.log('🔄 Disconnected due to:', reason, 'Will attempt reconnect if needed')
+          connectionStatus.set(userId, 'disconnected')
+        }
+      }
+    })
+
+    // Handle credentials update
+    sock.ev.on('creds.update', saveCreds)
+
+    // Wait a bit for QR code generation
+    setTimeout(() => {
+      const qrDataURL = qrCodes.get(userId)
+      const status = connectionStatus.get(userId)
+
+      if (qrDataURL) {
+        res.json({
+          success: true,
+          message: 'QR code generated successfully',
+          qr: qrDataURL,
+          status: 'waiting_scan',
+          data: {
+            userId,
+            generated_at: new Date().toISOString(),
+            expires_in: 20 // QR codes typically expire in ~20 seconds
+          }
+        })
+      } else if (status === 'connected') {
+        res.json({
+          success: true,
+          message: 'WhatsApp already connected',
+          connected: true,
+          qr: null
+        })
+      } else {
+        res.json({
+          success: false,
+          message: 'QR code generation in progress, please try again',
+          status: 'generating'
+        })
+      }
+    }, 3000) // Wait 3 seconds for QR generation
+
+  } catch (error) {
+    console.error('❌ WhatsApp QR error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while generating QR code',
+      error: error.message
+    })
+  }
+})
+
+// WhatsApp QR Refresh endpoint - Force generate new QR without clearing session
+app.post('/api/whatsapp/qr/refresh', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    console.log('🔄 WhatsApp QR refresh requested for user:', userId)
+
+    // Check if user has an active socket
+    const sock = whatsappConnections.get(userId)
+    if (!sock) {
+      return res.status(400).json({
+        success: false,
+        message: 'No active WhatsApp connection. Please generate initial QR first.',
+        status: 'no_connection'
+      })
+    }
+
+    // Clear existing QR to force new one
+    qrCodes.delete(userId)
+    connectionStatus.set(userId, 'refreshing')
+
+    // The socket should automatically generate a new QR
+    // Wait for new QR generation
+    let attempts = 0
+    const checkQR = setInterval(() => {
+      const qr = qrCodes.get(userId)
+      if (qr || attempts > 10) {
+        clearInterval(checkQR)
+        if (qr) {
+          res.json({
+            success: true,
+            message: 'QR code refreshed successfully',
+            qr,
+            status: 'waiting_scan',
+            data: {
+              userId,
+              generated_at: new Date().toISOString(),
+              expires_in: 20
+            }
+          })
+        } else {
+          res.json({
+            success: false,
+            message: 'QR refresh timeout. Please try generating a new connection.',
+            status: 'timeout'
+          })
+        }
+      }
+      attempts++
+    }, 500)
+
+  } catch (error) {
+    console.error('❌ WhatsApp QR refresh error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while refreshing QR code',
+      error: error.message
+    })
+  }
+})
+
+// WhatsApp Status endpoint
+app.get('/api/whatsapp/status', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+
+    // Check if user has an active connection
+    const isConnected = whatsappConnections.has(userId)
+    const status = connectionStatus.get(userId) || 'disconnected'
+    const sock = whatsappConnections.get(userId)
+
+    console.log('📱 WhatsApp status check for user:', userId, '- Connected:', isConnected, '- Status:', status)
+
+    let userInfo = null
+    if (isConnected && sock?.user) {
+      userInfo = {
+        name: sock.user.name,
+        id: sock.user.id,
+        phone: sock.user.id?.split(':')[0] || 'Unknown'
+      }
+    }
+
+    res.json({
+      success: true,
+      connected: isConnected && status === 'connected',
+      status: status,
+      message: isConnected && status === 'connected'
+        ? 'WhatsApp is connected'
+        : `WhatsApp is ${status}`,
+      data: {
+        userId,
+        connectionStatus: status,
+        userInfo,
+        last_check: new Date().toISOString()
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ WhatsApp status error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while checking WhatsApp status'
+    })
+  }
+})
+
+// WhatsApp Send Message endpoint
+app.post('/api/whatsapp/send', authenticateToken, async (req, res) => {
+  try {
+    const { to, message } = req.body
+    const userId = req.user.userId
+
+    if (!to || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: to, message'
+      })
+    }
+
+    const sock = whatsappConnections.get(userId)
+    if (!sock) {
+      return res.status(400).json({
+        success: false,
+        message: 'WhatsApp not connected. Please connect first.'
+      })
+    }
+
+    // Format phone number - add @s.whatsapp.net if not present
+    const phoneNumber = to.includes('@') ? to : `${to}@s.whatsapp.net`
+
+    console.log('📤 Sending message to', phoneNumber, 'from user:', userId)
+    console.log('💬 Message:', message)
+
+    await sock.sendMessage(phoneNumber, { text: message })
+
+    res.json({
+      success: true,
+      message: 'Message sent successfully',
+      data: {
+        to: phoneNumber,
+        message: message,
+        sentAt: new Date().toISOString()
+      }
+    })
+
+    console.log('✅ Message sent successfully to', phoneNumber)
+
+  } catch (error) {
+    console.error('❌ Error sending WhatsApp message:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send message',
+      error: error.message
+    })
+  }
+})
+
+// WhatsApp Disconnect endpoint
+app.post('/api/whatsapp/disconnect', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId
+    console.log('🔌 WhatsApp disconnect requested for user:', userId)
+
+    const sock = whatsappConnections.get(userId)
+
+    if (sock) {
+      try {
+        // Properly logout from WhatsApp
+        await sock.logout()
+        console.log('✅ WhatsApp logout successful for user:', userId)
+      } catch (logoutError) {
+        console.error('⚠️ Error during logout:', logoutError)
+        // Continue with cleanup even if logout fails
+      }
+
+      // Clean up connections
+      whatsappConnections.delete(userId)
+      qrCodes.delete(userId)
+      connectionStatus.set(userId, 'logged_out')
+
+      // Clean up session files
+      const userSessionPath = path.join(sessionsDir, `user_${userId}`)
+      try {
+        if (fs.existsSync(userSessionPath)) {
+          fs.rmSync(userSessionPath, { recursive: true, force: true })
+          console.log('🗑️ Session files cleaned for user:', userId)
+        }
+      } catch (cleanupError) {
+        console.error('⚠️ Error cleaning session files:', cleanupError)
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'WhatsApp disconnected successfully',
+      data: {
+        userId,
+        disconnected_at: new Date().toISOString(),
+        status: 'logged_out'
+      }
+    })
+
+  } catch (error) {
+    console.error('❌ WhatsApp disconnect error:', error)
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while disconnecting WhatsApp'
+    })
+  }
+})
+
 // Bot Configuration endpoint
 app.post('/api/bot/config', authenticateToken, async (req, res) => {
   try {
@@ -400,7 +998,7 @@ app.post('/api/bot/config', authenticateToken, async (req, res) => {
     // Maintain in-memory minimal cache
     botConfigs.set(userId, { model: botConfig.model })
 
-    res.json({ 
+    res.json({
       success: true,
       message: 'Bot configuration saved successfully',
       data: { model: botConfig.model }
@@ -484,7 +1082,7 @@ app.use('*', (req, res) => {
 // Error handler
 app.use((error: any, req: any, res: any, next: any) => {
   console.error('❌ Server error:', error)
-  
+
   res.status(error.statusCode || 500).json({
     success: false,
     message: error.message || 'Internal server error',
@@ -515,7 +1113,7 @@ const startServer = (port: number) => {
       console.log(`🧪 DB Test: http://localhost:${port}/api/test/db`)
       console.log(`📊 Database: Connected`)
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
-      
+
       // Load bot configurations from database into memory cache
       try {
         const botConfigsFromDb = await prisma.botConfig.findMany({
@@ -524,13 +1122,13 @@ const startServer = (port: number) => {
             model: true
           }
         })
-        
+
         botConfigsFromDb.forEach(config => {
           botConfigs.set(config.userId, {
             model: config.model
           })
         })
-        
+
         console.log(`🤖 Loaded ${botConfigsFromDb.length} bot configurations from database`)
       } catch (loadError) {
         console.warn('⚠️ Could not load bot configs from database:', loadError)
@@ -547,7 +1145,7 @@ const startServer = (port: number) => {
       process.exit(1)
     }
   })
-  
+
   return server
 }
 
