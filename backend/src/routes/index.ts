@@ -8,6 +8,10 @@ import webhookRoutes from './webhooks';
 import userRoutes from './users';
 import analyticsRoutes from './analytics';
 import subscriptionRoutes from './subscriptions';
+import botRoutes from './bot';
+import restaurantRoutes from './restaurant';
+import excludedContactsRoutes from './excludedContacts';
+import whatsappRoutes from './whatsapp';
 
 const router = Router();
 
@@ -21,5 +25,11 @@ router.use('/webhooks', webhookRoutes);
 router.use('/users', userRoutes);
 router.use('/analytics', analyticsRoutes);
 router.use('/subscriptions', subscriptionRoutes);
+
+// Novas rotas
+router.use('/bot', botRoutes);
+router.use('/restaurant', restaurantRoutes);
+router.use('/excluded-contacts', excludedContactsRoutes);
+router.use('/whatsapp', whatsappRoutes);
 
 export default router;

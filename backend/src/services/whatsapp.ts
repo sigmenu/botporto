@@ -408,6 +408,49 @@ class WhatsAppService {
     }
   }
 
+  // Solicitar código de pareamento (pairing code) para login via número
+  async requestPairingCode(sessionId: string, userId: string, phoneNumber: string): Promise<string> {
+    // Garantir que a sessão exista
+    let session = this.sessions.get(sessionId);
+    if (!session) {
+      await this.createSession(sessionId, userId);
+      session = this.sessions.get(sessionId);
+    }
+
+    if (!session?.socket || typeof session.socket.requestPairingCode !== 'function') {
+      throw new Error('Cliente WhatsApp não suporta pairing code nesta configuração');
+    }
+
+    // Sanitizar número (somente dígitos). Ex: 5511999999999
+    const sanitized = (phoneNumber || '').toString().replace(/\D/g, '');
+    if (!sanitized || sanitized.length < 8) {
+      throw new Error('Número de telefone inválido para pairing code');
+    }
+
+    try {
+      const code = await session.socket.requestPairingCode(sanitized);
+
+      // Persistir no banco para fácil recuperação/telemetria
+      await prisma.whatsAppSession.update({
+        where: { id: sessionId },
+        data: {
+          status: 'CONNECTING',
+          qrCode: code, // Reaproveitamos o campo para armazenar o pairing code
+          lastConnected: new Date(),
+        },
+      });
+
+      // Emitir também via WebSocket
+      io.to(`session-${sessionId}`).emit('pairing-code', { pairingCode: code });
+
+      logger.info(`Pairing code gerado para sessão ${sessionId}`);
+      return code;
+    } catch (error) {
+      logger.error(`Erro ao solicitar pairing code para sessão ${sessionId}:`, error);
+      throw error;
+    }
+  }
+
   // Obter sessão
   getSession(sessionId: string): WhatsAppSession | undefined {
     return this.sessions.get(sessionId);
