@@ -2,6 +2,61 @@ import { Router } from 'express';
 import { authenticateJWT } from '../middlewares/auth';
 import { prisma } from '../index';
 import { whatsappService } from '../services/whatsapp';
+import { logger } from '../utils/logger';
+
+const QR_POLL_INTERVAL_MS = 500;
+const QR_MAX_ATTEMPTS = 20;
+
+const wait = (ms: number) => new Promise<void>((resolve) => globalThis.setTimeout(resolve, ms));
+
+const selectSessionFields = {
+  id: true,
+  status: true,
+  qrCode: true,
+  phoneNumber: true,
+  lastConnected: true,
+};
+
+const ensureSession = async (userId: string) => {
+  let session = await prisma.whatsAppSession.findFirst({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    select: selectSessionFields,
+  });
+
+  if (!session) {
+    session = await prisma.whatsAppSession.create({
+      data: {
+        userId,
+        name: 'Minha sessão',
+        status: 'DISCONNECTED',
+      },
+      select: selectSessionFields,
+    });
+  }
+
+  return session;
+};
+
+const waitForQrCode = async (sessionId: string) => {
+  for (let attempt = 0; attempt < QR_MAX_ATTEMPTS; attempt++) {
+    const latest = await prisma.whatsAppSession.findUnique({
+      where: { id: sessionId },
+      select: selectSessionFields,
+    });
+
+    if (latest?.qrCode || latest?.status === 'CONNECTED') {
+      return latest;
+    }
+
+    await wait(QR_POLL_INTERVAL_MS);
+  }
+
+  return prisma.whatsAppSession.findUnique({
+    where: { id: sessionId },
+    select: selectSessionFields,
+  });
+};
 
 const router = Router();
 
@@ -13,20 +68,25 @@ router.get('/status', authenticateJWT, async (req: any, res) => {
     const session = await prisma.whatsAppSession.findFirst({
       where: { userId },
       orderBy: { updatedAt: 'desc' },
-      select: { id: true, status: true, phoneNumber: true, lastConnected: true },
+      select: selectSessionFields,
     });
 
-    const connected = session?.status === 'CONNECTED';
+    const status = session?.status || 'DISCONNECTED';
+    const connected = status === 'CONNECTED';
+    const lastConnected = session?.lastConnected ? session.lastConnected.toISOString() : null;
 
     return res.json({
       success: true,
       connected,
-      status: session?.status || 'DISCONNECTED',
+      status,
+      phoneNumber: session?.phoneNumber || null,
+      lastConnected,
+      message: connected ? 'WhatsApp is connected' : `WhatsApp is ${status}`,
       data: {
         userId,
-        sessionId: session?.id,
-        phone: session?.phoneNumber,
-        lastConnected: session?.lastConnected,
+        sessionId: session?.id || null,
+        phone: session?.phoneNumber || null,
+        lastConnected,
       },
     });
   } catch (error: any) {
@@ -39,68 +99,174 @@ router.get('/qr', authenticateJWT, async (req: any, res) => {
   try {
     const userId = req.user!.id;
 
-    // Buscar ou criar sessão padrão do usuário
-    let session = await prisma.whatsAppSession.findFirst({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-    });
+    let session = await ensureSession(userId);
 
-    if (!session) {
-      session = await prisma.whatsAppSession.create({
-        data: {
-          userId,
-          name: 'Minha sessão',
-          status: 'DISCONNECTED',
-        },
-      });
-    }
+    // Garantir que a sessão está inicializada (gera QR async)
+    const activeSession = whatsappService.getSession(session.id);
+    if (!activeSession) {
+      try {
+        await whatsappService.resetSession(session.id);
+      } catch (error) {
+        logger.warn('Erro ao resetar sessão antes de criar nova conexão WhatsApp:', error);
+      }
 
-    // Garantir que a sessão está inicializada no serviço (gera QR async)
-    const current = whatsappService.getSession(session.id);
-    if (!current) {
       try {
         await whatsappService.createSession(session.id, userId);
-      } catch (_) {
-        // segue, o QR pode ainda não estar pronto
+      } catch (error) {
+        // Registro do erro apenas para debugging sem quebrar o fluxo
+        logger.error('Erro ao criar sessão WhatsApp:', error);
       }
     }
 
-    // Recarregar sessão do banco para pegar QR/status atualizados
-    const latest = await prisma.whatsAppSession.findUnique({
-      where: { id: session.id },
-      select: { id: true, status: true, qrCode: true, phoneNumber: true, lastConnected: true },
-    });
+    session = (await waitForQrCode(session.id)) || session;
 
-    // Montar resposta compatível
-    if (latest?.status === 'CONNECTED') {
+    if (session.status === 'CONNECTED') {
+      const lastConnected = session.lastConnected ? session.lastConnected.toISOString() : null;
       return res.json({
         success: true,
         connected: true,
         status: 'CONNECTED',
         message: 'WhatsApp já conectado',
+        phoneNumber: session.phoneNumber || null,
+        lastConnected,
         data: {
           userId,
-          sessionId: latest.id,
-          phone: latest.phoneNumber,
-          lastConnected: latest.lastConnected,
+          sessionId: session.id,
+          phone: session.phoneNumber || null,
+          lastConnected,
         },
       });
     }
 
     return res.json({
       success: true,
-      message: latest?.qrCode ? 'QR code disponível' : 'Conectando... aguarde o QR',
-      qr: latest?.qrCode || null,
-      status: latest?.status || 'CONNECTING',
+      connected: false,
+      status: session.status || 'CONNECTING',
+      message: session.qrCode ? 'QR code disponível' : 'Conectando... aguarde o QR',
+      qrCode: session.qrCode || null,
+      qr: session.qrCode || null,
       data: {
         userId,
-        sessionId: latest?.id || session.id,
+        sessionId: session.id,
         generated_at: new Date().toISOString(),
         expires_in: 20,
       },
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: 'Erro ao gerar/obter QR', error: error?.message });
+  }
+});
+
+// POST /api/whatsapp/qr/refresh - força a geração de um novo QR
+router.post('/qr/refresh', authenticateJWT, async (req: any, res) => {
+  try {
+    const userId = req.user!.id;
+
+    let session = await ensureSession(userId);
+
+    if (session.status === 'CONNECTED') {
+      const lastConnected = session.lastConnected ? session.lastConnected.toISOString() : null;
+      return res.json({
+        success: true,
+        connected: true,
+        status: 'CONNECTED',
+        message: 'WhatsApp já está conectado, não é necessário atualizar o QR.',
+        data: {
+          userId,
+          sessionId: session.id,
+          phone: session.phoneNumber || null,
+          lastConnected,
+        },
+      });
+    }
+
+    try {
+      await whatsappService.resetSession(session.id);
+    } catch (error) {
+      logger.warn('Não foi possível resetar sessão antes do refresh:', error);
+    }
+
+    await prisma.whatsAppSession.update({
+      where: { id: session.id },
+      data: { status: 'CONNECTING', qrCode: null },
+    });
+
+    try {
+      await whatsappService.createSession(session.id, userId);
+    } catch (error) {
+      logger.error('Erro ao recriar sessão WhatsApp durante refresh:', error);
+    }
+
+    session = (await waitForQrCode(session.id)) || session;
+
+    if (session.qrCode) {
+      return res.json({
+        success: true,
+        connected: false,
+        status: session.status || 'CONNECTING',
+        message: 'QR code atualizado com sucesso',
+        qrCode: session.qrCode,
+        qr: session.qrCode,
+        data: {
+          userId,
+          sessionId: session.id,
+          generated_at: new Date().toISOString(),
+          expires_in: 20,
+        },
+      });
+    }
+
+    return res.status(504).json({
+      success: false,
+      message: 'Tempo esgotado ao tentar atualizar o QR code. Tente novamente.',
+      status: session.status || 'TIMEOUT',
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: 'Erro ao atualizar QR code', error: error?.message });
+  }
+});
+
+// POST /api/whatsapp/disconnect - encerra a sessão atual
+router.post('/disconnect', authenticateJWT, async (req: any, res) => {
+  try {
+    const userId = req.user!.id;
+
+    const session = await prisma.whatsAppSession.findFirst({
+      where: { userId },
+      orderBy: { updatedAt: 'desc' },
+      select: selectSessionFields,
+    });
+
+    if (!session) {
+      return res.json({
+        success: true,
+        message: 'Nenhuma sessão ativa encontrada.',
+        data: { userId, sessionId: null },
+      });
+    }
+
+    try {
+      await whatsappService.disconnectSession(session.id);
+    } catch (error) {
+      logger.warn('Erro ao desconectar sessão do WhatsApp:', error);
+    }
+
+    await prisma.whatsAppSession.update({
+      where: { id: session.id },
+      data: { status: 'DISCONNECTED', qrCode: null, lastConnected: new Date() },
+    });
+
+    return res.json({
+      success: true,
+      message: 'WhatsApp desconectado com sucesso.',
+      data: {
+        userId,
+        sessionId: session.id,
+        status: 'DISCONNECTED',
+      },
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, message: 'Erro ao desconectar WhatsApp', error: error?.message });
   }
 });
 

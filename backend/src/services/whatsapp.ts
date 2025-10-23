@@ -5,6 +5,7 @@ import { Boom } from '@hapi/boom';
 import QRCode from 'qrcode';
 import path from 'path';
 import fs from 'fs/promises';
+import * as nodeCrypto from 'crypto';
 import { prisma } from '../index';
 import { logger } from '../utils/logger';
 import { io } from '../index';
@@ -18,6 +19,15 @@ async function loadBaileys() {
     Baileys = await import('@whiskeysockets/baileys');
   }
   return Baileys;
+}
+
+const globalAny = globalThis as any;
+if (!globalAny.crypto) {
+  globalAny.crypto = nodeCrypto;
+}
+
+if (!globalAny.crypto.subtle && nodeCrypto.webcrypto?.subtle) {
+  globalAny.crypto.subtle = nodeCrypto.webcrypto.subtle;
 }
 
 interface WhatsAppSession {
@@ -166,7 +176,10 @@ class WhatsAppService {
         logger.info(`Tentando reconectar sessão ${sessionId} (tentativa ${reconnectAttempts + 1})`);
         
         setTimeout(() => {
-          this.createSession(sessionId, session.userId);
+          this.sessions.delete(sessionId);
+          this.createSession(sessionId, session.userId).catch((err: any) => {
+            logger.error(`Erro ao recriar sessão ${sessionId} durante reconexão:`, err);
+          });
         }, 5000);
       } else {
         logger.warn(`Sessão ${sessionId} desconectada permanentemente`);
@@ -475,6 +488,64 @@ class WhatsAppService {
     });
 
     logger.info(`Sessão ${sessionId} desconectada`);
+  }
+
+  // Resetar completamente uma sessão, removendo credenciais e cache locais
+  async resetSession(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+
+    if (session?.socket) {
+      try {
+        session.socket.ev?.removeAllListeners?.();
+      } catch (error) {
+        logger.debug(`Não foi possível remover listeners da sessão ${sessionId}:`, error);
+      }
+
+      try {
+        session.socket.end?.();
+      } catch (error) {
+        logger.debug(`Não foi possível finalizar socket da sessão ${sessionId}:`, error);
+      }
+
+      try {
+        await session.socket.logout?.();
+      } catch (error) {
+        logger.warn(`Erro ao realizar logout durante reset da sessão ${sessionId}:`, error);
+      }
+    }
+
+    this.sessions.delete(sessionId);
+    this.reconnectAttempts.delete(sessionId);
+
+    const sessionPath = path.join(process.cwd(), 'sessions', sessionId);
+
+    try {
+      await fs.rm(sessionPath, { recursive: true, force: true });
+    } catch (error) {
+      logger.warn(`Erro ao remover diretório da sessão ${sessionId}:`, error);
+    }
+
+    try {
+      await prisma.whatsAppSession.update({
+        where: { id: sessionId },
+        data: {
+          status: 'DISCONNECTED',
+          qrCode: null,
+          phoneNumber: null,
+          lastConnected: null,
+        },
+      });
+    } catch (error) {
+      logger.warn(`Erro ao redefinir estado da sessão ${sessionId} no banco:`, error);
+    }
+
+    try {
+      await cacheService.del(`whatsapp:session:${sessionId}`);
+    } catch (error) {
+      logger.debug(`Erro ao limpar cache da sessão ${sessionId}:`, error);
+    }
+
+    logger.info(`Sessão ${sessionId} resetada`);
   }
 
   // Manipular atualizações de mensagens (status de entrega)

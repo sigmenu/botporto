@@ -40,14 +40,14 @@ router.post('/', authenticateJWT, async (req: any, res) => {
   }
 });
 
-// DELETE /api/excluded-contacts/:phoneNumber
-router.delete('/:phoneNumber', authenticateJWT, async (req: any, res) => {
+// DELETE /api/excluded-contacts/:id
+router.delete('/:id', authenticateJWT, async (req: any, res) => {
   try {
     const userId = req.user!.id;
-    const { phoneNumber } = req.params;
+    const { id } = req.params;
 
     await prisma.excludedContact.updateMany({
-      where: { userId, phoneNumber, isActive: true },
+      where: { userId, id, isActive: true },
       data: { isActive: false },
     });
 

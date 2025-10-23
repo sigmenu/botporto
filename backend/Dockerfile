@@ -3,9 +3,10 @@ FROM node:18-bullseye-slim AS base
 
 # Instalar dependências do sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssl \
-    ca-certificates \
-    curl \
+  git \
+  openssl \
+  ca-certificates \
+  curl \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -29,9 +30,10 @@ FROM node:18-bullseye-slim AS production
 
 # Instalar utilitários necessários (curl para healthcheck e openssl para engines do Prisma)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    openssl \
-    ca-certificates \
-    curl \
+  git \
+  openssl \
+  ca-certificates \
+  curl \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
